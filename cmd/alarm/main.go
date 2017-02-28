@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"time"
 
+	"github.com/lodastack/alarm/cluster"
 	"github.com/lodastack/alarm/config"
-	"github.com/lodastack/alarm/loda"
-	"github.com/lodastack/alarm/query"
+	"github.com/lodastack/alarm/models"
+	"github.com/lodastack/alarm/work"
 
 	"github.com/lodastack/log"
 )
@@ -30,7 +32,7 @@ func initLog(conf config.LogConfig) {
 }
 
 func init() {
-	configFile := flag.String("c", "./conf/router.conf", "config file path")
+	configFile := flag.String("c", "./conf/alarm.conf", "config file path")
 	flag.Parse()
 	fmt.Printf("load config from %s\n", *configFile)
 	err := config.LoadConfig(*configFile)
@@ -44,8 +46,19 @@ func init() {
 
 func main() {
 	fmt.Println("build via golang version ", runtime.Version())
-
-	go query.Start()
-	go loda.PurgeAll()
+	c, err := cluster.NewCluster(config.GetConfig().Etcd.Addr, config.GetConfig().Etcd.Endpoints, false, "", "", 5, 5)
+	if err != nil {
+		fmt.Println("main error", err)
+		return
+	}
+	go c.Run()
+	go work.Loop()
+	for {
+		fmt.Println(c.AliveNodes())
+		models.Println()
+		time.Sleep(time.Second)
+	}
+	// go query.Start()
+	// go loda.PurgeAll()
 	select {}
 }

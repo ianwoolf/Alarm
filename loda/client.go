@@ -11,11 +11,13 @@ import (
 	"github.com/lodastack/alarm/requests"
 
 	"github.com/lodastack/log"
+	"github.com/lodastack/models"
 )
 
 const CommonCluster = "common"
 const DefaultDBNameSpace = "db.monitor.loda"
 const MachineUri = "/api/v1/router/resource?ns=%s&type=machine"
+const AlarmUri = "/api/v1/router/resource?ns=%s&type=alarm"
 
 var PurgeChan chan string
 var Client *client
@@ -34,6 +36,11 @@ type RespNS struct {
 type RespDB struct {
 	Status int      `json:"httpstatus"`
 	Data   []Server `json:"data"`
+}
+
+type ResAlarm struct {
+	HttpStatus int            `json:"httpstatus"`
+	Data       []models.Alarm `json:"data"`
 }
 
 type Server struct {
@@ -59,8 +66,7 @@ func PurgeAll() {
 	for {
 		select {
 		case <-ticker.C:
-			url := fmt.Sprintf("%s/api/v1/router/ns?ns=&format=list", config.GetConfig().Reg.Link)
-			res, err := allNS(url)
+			res, err := AllNS("")
 			if err == nil {
 				log.Infof("DB old cache: %v", Client.db)
 				for _, ns := range res {
@@ -125,7 +131,7 @@ func updateInfluxDBs(ns string) ([]string, error) {
 	}
 
 	url = fmt.Sprintf("%s/api/v1/router/ns?ns=%s&format=list", config.GetConfig().Reg.Link, DefaultDBNameSpace)
-	res, err = allNS(url)
+	res, err = AllNS(url)
 	if err == nil {
 		ok, cluster := includeNS(partone, res)
 		if ok {
@@ -174,9 +180,12 @@ func servers(url string) ([]string, error) {
 	return res, nil
 }
 
-func allNS(url string) ([]string, error) {
+func AllNS(url string) ([]string, error) {
 	var resNS RespNS
 	var res []string
+	if url == "" {
+		url = fmt.Sprintf("%s/api/v1/router/ns?ns=&format=list", config.GetConfig().Reg.Link)
+	}
 	resp, err := requests.Get(url)
 	if err != nil {
 		return res, err
@@ -190,6 +199,23 @@ func allNS(url string) ([]string, error) {
 		return resNS.Data, nil
 	}
 	return res, fmt.Errorf("http status code: %d", resp.Status)
+}
+
+func GetAlarmsByNs(ns string) ([]models.Alarm, error) {
+	var resAlarms ResAlarm
+	resAlarms = ResAlarm{} // TODO
+
+	url := fmt.Sprintf("%s"+AlarmUri, config.GetConfig().Reg.Link, ns)
+	resp, err := requests.Get(url)
+	if err != nil {
+		return resAlarms.Data, err
+	}
+
+	if resp.Status != 200 {
+		return resAlarms.Data, fmt.Errorf("query registry error")
+	}
+	err = json.Unmarshal(resp.Body, &resAlarms)
+	return resAlarms.Data, err
 }
 
 func includeNS(nsPartOne string, dbs []string) (bool, string) {

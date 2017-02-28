@@ -10,7 +10,6 @@ import (
 	"github.com/bitly/go-nsq"
 	"github.com/coreos/etcd/client"
 	"github.com/lodastack/log"
-	"strings"
 )
 
 var (
@@ -29,6 +28,7 @@ type Config struct {
 	EtcdConfig client.Config `toml:"-"`
 }
 type EtcdConfig struct {
+	Addr          string        `toml:"addr"`
 	Auth          bool          `toml:"auth"`
 	Username      string        `toml:"username"`
 	Password      string        `toml:"password"`
