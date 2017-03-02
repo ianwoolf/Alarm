@@ -13,3 +13,8 @@ type Points struct {
 	RetentionPolicy string   `json:"retentionPolicy"`
 	Points          []*Point `json:"points"`
 }
+
+func (p *Point) Host() string {
+	host, _ := p.Tags["host"]
+	return host
+}

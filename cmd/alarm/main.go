@@ -9,6 +9,7 @@ import (
 
 	"github.com/lodastack/alarm/cluster"
 	"github.com/lodastack/alarm/config"
+	"github.com/lodastack/alarm/loda"
 	"github.com/lodastack/alarm/models"
 	"github.com/lodastack/alarm/work"
 
@@ -51,11 +52,13 @@ func main() {
 		fmt.Println("main error", err)
 		return
 	}
-	go c.Run()
-	go work.Loop()
+	go loda.ReadLoop()
+
+	w := work.NewWork(c)
+	go w.CheckRegistryAlarmLoop()
 	for {
-		fmt.Println(c.AliveNodes())
 		models.Println()
+
 		time.Sleep(time.Second)
 	}
 	// go query.Start()
