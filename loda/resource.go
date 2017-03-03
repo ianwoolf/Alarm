@@ -80,7 +80,7 @@ func GetAlarmsByNs(ns string) ([]m.Alarm, error) {
 	}
 
 	if resp.Status != 200 {
-		log.Errorf("get alarm of ns %s error: %s", ns, err.Error())
+		log.Errorf("get alarm of ns %s error: %+v", ns, resp)
 		return resAlarms.Data, fmt.Errorf("query registry error")
 	}
 	err = json.Unmarshal(resp.Body, &resAlarms)

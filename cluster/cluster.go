@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/lodastack/alarm/cluster/etcd"
-	"github.com/lodastack/alarm/models"
 
 	"github.com/coreos/etcd/client"
 	"github.com/lodastack/log"
@@ -17,14 +16,14 @@ type ClusterInf interface {
 	Lock(path string, lockTime time.Duration) error
 	Unlock(path string) error
 	RecursiveGet(k string) (*client.Response, error)
+	CreateDir(k string) error
 }
 
 type Cluster struct {
 	etcd.EtcdClient
 
-	Self   string
-	TTL    time.Duration
-	Alarms models.AlarmCluster
+	Self string
+	TTL  time.Duration
 }
 
 func NewCluster(selfAddr string, endpoints []string, basicAuth bool, username, password string,
@@ -38,6 +37,6 @@ func NewCluster(selfAddr string, endpoints []string, basicAuth bool, username, p
 		return nil, err
 	}
 
-	cluster := Cluster{etcdClient, selfAddr, nodeTTL, models.NewAlarmCluster()}
+	cluster := Cluster{etcdClient, selfAddr, nodeTTL}
 	return &cluster, nil
 }

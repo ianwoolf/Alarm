@@ -116,7 +116,7 @@ func (c *EtcdClient) Listen() EtcdMsg {
 
 // TODO: set time limit. It will leak mem if not.
 func (c *EtcdClient) Lock(k string, lockTime time.Duration) error {
-	key := k + "_lock"
+	key := k + "/_lock"
 	for {
 		if err := c.Set(key, ".lock", &client.SetOptions{
 			PrevExist: client.PrevNoExist,
@@ -133,10 +133,14 @@ func (c *EtcdClient) Lock(k string, lockTime time.Duration) error {
 }
 
 func (c *EtcdClient) Unlock(path string) error {
-	lockKey := path + "_lock"
+	lockKey := path + "/_lock"
 	return c.Delete(lockKey)
 }
 
 func (c *EtcdClient) RecursiveGet(k string) (*client.Response, error) {
 	return c.kapi.Get(context.Background(), k, &client.GetOptions{Recursive: true})
+}
+
+func (c *EtcdClient) CreateDir(k string) error {
+	return c.Set(k, k, &client.SetOptions{Dir: true})
 }

@@ -1,20 +1,17 @@
 package work
 
 import (
-	"fmt"
-
 	"time"
 
 	"github.com/lodastack/alarm/cluster"
 	"github.com/lodastack/alarm/loda"
-	// "github.com/lodastack/alarm/models"
 	m "github.com/lodastack/models"
 
 	"github.com/lodastack/log"
 )
 
 var (
-	interval time.Duration = 10
+	interval time.Duration = 20
 )
 
 type Work struct {
@@ -32,77 +29,36 @@ func (w *Work) UpdateAlarms() error {
 		if len(alarms) == 0 {
 			continue
 		}
-
-		_, err := w.Cluster.Get(ns, nil)
-		if err != nil {
-			log.Errorf("get ns fail: %s", err.Error())
-			if err := w.Cluster.Lock("", time.Millisecond*10); err != nil {
-				log.Errorf("work lock ns %s error: %s", ns, err.Error())
-				continue //
-			} else {
-				if err := w.Cluster.Set(ns, ns, nil); err != nil {
-					log.Errorf("work set ns %s error: %s", ns, err.Error())
-					continue
-				}
-			}
-			if err := w.Cluster.Unlock(""); err != nil {
-				log.Errorf("work unlock ns %s error: %s", ns, err.Error())
+		// create ns dir if not exist.
+		if _, err := w.Cluster.Get(ns, nil); err != nil {
+			log.Infof("get ns %s fail(%s) set it", ns, err.Error())
+			if err := w.Cluster.CreateDir(ns); err != nil {
+				log.Errorf("work set ns %s error: %s, skip this ns", ns, err.Error())
+				continue
 			}
 		}
 
+		// create alarm dir if not exit.
 		for _, alarm := range alarms {
-			_, err := w.Cluster.Get(ns+"/"+alarm.Version, nil)
-			if err != nil {
-			}
-			_, err = w.Cluster.Get(ns+"/"+alarm.Version+"/resource", nil)
-			if err == nil {
-				// unmarshal alarmInEtcd
-				// if alarmMatch()
-				// continue
-			}
-
-			if err := w.Cluster.Lock(ns, time.Millisecond*10); err != nil {
-				log.Errorf("work lock ns %s error: %s", ns, err.Error())
-				continue //
-			} else {
-
-				if err := w.Cluster.Set(ns+"/"+alarm.Version, ns+"/"+alarm.Version, nil); err != nil {
-					// log.Errorf("work set ns %s error: %s", ns, err.Error())
-					// continue //
+			alarmKey := ns + "/" + alarm.Version
+			if _, err := w.Cluster.Get(alarmKey, nil); err != nil {
+				log.Infof("get ns(%s) alarm(%s) fail: %s, set it and all dir.", ns, alarm.Version, err.Error())
+				if err := w.Cluster.CreateDir(alarmKey); err != nil {
+					log.Errorf("set ns(%s) alarm(%s) fail: %s, skip this alarm",
+						ns, alarm.Version, err.Error())
+					continue
 				}
-
-				if err := w.Cluster.Set(ns+"/"+alarm.Version+"/resource", ns+"/"+alarm.Version, nil); err != nil {
-					log.Errorf("work set ns %s error: %s", ns, err.Error())
-					// continue //
+				allDirKey := alarmKey + "/all"
+				if err := w.Cluster.CreateDir(allDirKey); err != nil {
+					log.Errorf("set ns(%s) alarm(%s) dir \"all\" fail: %s, skip this alarm",
+						ns, alarm.Version, err.Error())
+					continue
 				}
 			}
-			if err := w.Cluster.Unlock(ns); err != nil && err.Error() != "100: Key not found" {
-				log.Errorf("work unlock ns %s error: %s", ns, err.Error())
-			}
-
-			/*
-					if _, ok := models.Work.NSs[ns].Alarms[alarm.Name]; !ok {
-						alarmBlock := models.NewAlarmBlock(alarm)
-						models.Work.NSs[ns].Alarms[alarm.Name] = &alarmBlock
-						continue
-					}
-					if err := updateAlarm(ns, alarm); err != nil {
-						log.Errorf("UpdateAlarms fail: %s", err.Error())
-					}
-				}
-				models.Work.NSs[ns].Unlock()
-			*/
 		}
 	}
 	return nil
 }
-
-// func updateAlarm(ns string, alarm m.Alarm) error {
-// 	if !alarmChanged(alarm, models.Work.NSs[ns].Alarms[alarm.Name].Alarm) {
-// 		return nil
-// 	}
-// 	return models.Work.NSs[ns].Alarms[alarm.Name].UpdateAlarm(alarm)
-// }
 
 // alarmChanged return true if one not match with another,
 // otherwise return false.
@@ -127,8 +83,11 @@ func (w *Work) CheckRegistryAlarmLoop() {
 
 	for {
 		if err := w.UpdateAlarms(); err != nil {
-			fmt.Println("work loop error:", err)
+			log.Errorf("work loop error: %s", err)
+		} else {
+			log.Info("work loop success")
 		}
+
 		time.Sleep(interval * time.Second)
 	}
 }

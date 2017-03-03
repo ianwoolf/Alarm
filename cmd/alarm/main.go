@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"time"
 
 	"github.com/lodastack/alarm/cluster"
 	"github.com/lodastack/alarm/config"
 	"github.com/lodastack/alarm/loda"
-	"github.com/lodastack/alarm/models"
+	"github.com/lodastack/alarm/query"
 	"github.com/lodastack/alarm/work"
 
 	"github.com/lodastack/log"
@@ -56,12 +55,8 @@ func main() {
 
 	w := work.NewWork(c)
 	go w.CheckRegistryAlarmLoop()
-	for {
-		models.Println()
 
-		time.Sleep(time.Second)
-	}
-	// go query.Start()
+	go query.Start()
 	// go loda.PurgeAll()
 	select {}
 }

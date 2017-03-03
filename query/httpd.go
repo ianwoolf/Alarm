@@ -97,14 +97,9 @@ func cors(inner http.Handler) http.Handler {
 }
 
 func addHandlers() {
-	prefix := "/router"
+	prefix := "/event"
 
-	http.Handle(prefix+"/stats", cors(http.HandlerFunc(statsHandler)))
-	http.Handle(prefix+"/series", cors(http.HandlerFunc(seriesHandler)))
-	http.Handle(prefix+"/tags", cors(http.HandlerFunc(tagsHandler)))
-	http.Handle(prefix+"/query", cors(http.HandlerFunc(queryHandler)))
-	http.Handle(prefix+"/query2", cors(http.HandlerFunc(query2Handler)))
-	http.Handle(prefix+"/measurement", cors(http.HandlerFunc(deleteMeasurementHandler)))
+	http.Handle(prefix+"/post", cors(http.HandlerFunc(postDataHandler)))
 }
 
 func Start() {
