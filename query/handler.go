@@ -2,44 +2,16 @@ package query
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
-	"time"
+	"net/url"
+	"strings"
+
+	"github.com/lodastack/alarm/models"
+	m "github.com/lodastack/models"
+
+	"github.com/lodastack/log"
 )
-
-type AlertData struct {
-	ID       string        `json:"id"`
-	Message  string        `json:"message"`
-	Details  string        `json:"details"`
-	Time     time.Time     `json:"time"`
-	Duration time.Duration `json:"duration"`
-	Level    string        `json:"level"`
-	Data     Result        `json:"data"`
-}
-
-type Result struct {
-	// StatementID is just the statement's position in the query. It's used
-	// to combine statement results if they're being buffered in memory.
-	StatementID int `json:"-"`
-	Series      Rows
-	Messages    []*Message
-	Err         error
-}
-
-type Message struct {
-	Level string `json:"level"`
-	Text  string `json:"text"`
-}
-
-type Rows []*Row
-
-type Row struct {
-	Name    string            `json:"name,omitempty"`
-	Tags    map[string]string `json:"tags,omitempty"`
-	Columns []string          `json:"columns,omitempty"`
-	Values  [][]interface{}   `json:"values,omitempty"`
-}
 
 // @desc get measurement tags from influxdb deps on ns name
 // @router /tags [get]
@@ -48,19 +20,44 @@ func postDataHandler(resp http.ResponseWriter, req *http.Request) {
 		errResp(resp, http.StatusMethodNotAllowed, "Get or POST please!")
 		return
 	}
+	params, err := url.ParseQuery(req.URL.RawQuery)
+	if err != nil {
+		log.Error("parse url error:", err.Error())
+		errResp(resp, http.StatusInternalServerError, "parse url error")
+		return
+	}
+	alarmversion := params.Get("version")
+	if alarmversion == "" {
+		errResp(resp, http.StatusBadRequest, "invalid alarm version")
+		return
+	}
+
+	versionSplit := strings.Split(alarmversion, m.VersionSep)
+	// TODO: check
+	// fmt.Printf("http handler  %+v\n", versionSplit)
 
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		fmt.Println("read body fail")
-	} else {
-		fmt.Println("read body:", string(body))
+		log.Errorf("Read body fail: %s.", err.Error())
+		errResp(resp, http.StatusInternalServerError, "read body fail")
+		return
 	}
 
-	var alertData AlertData
+	var alertData models.AlertData
 	if err = json.Unmarshal(body, &alertData); err != nil {
-		fmt.Println("json unmarshal error:", err.Error())
+		log.Errorf("Json unmarshal error: %s.", err.Error())
+		errResp(resp, http.StatusInternalServerError, "parse json error")
+		return
 	}
-	fmt.Printf("%+v", alertData)
+
+	ns := versionSplit[0]
+	err = worker.HandleEvent(ns, alarmversion, alertData)
+	if err != nil {
+		log.Errorf("Work handle event error: %s.", err.Error())
+		errResp(resp, http.StatusInternalServerError, "handle event error")
+		return
+	}
+
 	// just return the origin influxdb rs
 	resp.Header().Add("Content-Type", "application/json")
 	succResp(resp, "OK", alertData)

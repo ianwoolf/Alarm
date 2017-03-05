@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"time"
 
 	"github.com/lodastack/alarm/cluster"
 	"github.com/lodastack/alarm/config"
@@ -52,11 +53,11 @@ func main() {
 		return
 	}
 	go loda.ReadLoop()
-
 	w := work.NewWork(c)
+	time.Sleep(500 * time.Millisecond) // TODO
 	go w.CheckRegistryAlarmLoop()
 
-	go query.Start()
+	go query.Start(w)
 	// go loda.PurgeAll()
 	select {}
 }

@@ -8,7 +8,6 @@ import (
 	"github.com/lodastack/alarm/common"
 
 	"github.com/lodastack/log"
-	m "github.com/lodastack/models"
 )
 
 var (
@@ -18,12 +17,15 @@ var (
 
 type lodaAlarm struct {
 	sync.RWMutex
-	NsAlarms map[string][]m.Alarm
+	NsAlarms map[string]map[string]*Alarm
+
+	CleanChannel chan string
 }
 
 func init() {
 	Loda = lodaAlarm{
-		NsAlarms: make(map[string][]m.Alarm),
+		NsAlarms:     make(map[string]map[string]*Alarm),
+		CleanChannel: make(chan string, 0),
 	}
 }
 
@@ -43,6 +45,9 @@ func (l *lodaAlarm) UpdateAlarms() error {
 	}
 
 	for _, ns := range allNs {
+		if _, ok := l.NsAlarms[ns]; !ok {
+			l.NsAlarms[ns] = map[string]*Alarm{}
+		}
 		alarms, err := GetAlarmsByNs(ns)
 		if err != nil {
 			log.Errorf("get alarm fail: %s", err.Error())
@@ -51,8 +56,22 @@ func (l *lodaAlarm) UpdateAlarms() error {
 		if len(alarms) == 0 {
 			continue
 		}
-		l.NsAlarms[ns] = alarms
+		for _, alarm := range alarms {
+			oldAlarm, ok := l.NsAlarms[ns][alarm.Version]
+			if !ok {
+				l.NsAlarms[ns][alarm.Version] = newAlarm(alarm)
+				go l.NsAlarms[ns][alarm.Version].Run(l.CleanChannel)
+			} else {
+				if !ifAlarmChanged(oldAlarm.AlarmData, alarm) {
+					continue
+				}
+				l.NsAlarms[ns][alarm.Version].Update(alarm, l.CleanChannel)
+			}
+
+		}
+		// check removed alarm
 	}
+	// check removed ns
 	return nil
 }
 

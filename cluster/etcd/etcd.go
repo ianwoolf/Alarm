@@ -2,6 +2,7 @@ package etcd
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/lodastack/log"
@@ -98,15 +99,38 @@ func (c *EtcdClient) Get(k string, option *client.GetOptions) (*client.Response,
 	return c.kapi.Get(context.Background(), key, option)
 }
 
+func (c *EtcdClient) RecursiveGet(k string) (*client.Response, error) {
+	if !strings.HasPrefix(k, "/"+alarmsDirect) {
+		k = alarmsDirect + "/" + k
+	}
+
+	return c.kapi.Get(context.Background(), k, &client.GetOptions{Recursive: true})
+}
+
 func (c *EtcdClient) Set(k, v string, option *client.SetOptions) error {
 	key := alarmsDirect + "/" + k
 	_, err := c.kapi.Set(context.Background(), key, v, option)
 	return err
 }
 
-func (c *EtcdClient) Delete(k string) error {
+func (c *EtcdClient) SetWithTTL(k, v string, duration time.Duration) error {
 	key := alarmsDirect + "/" + k
+	if duration == 0 {
+		duration = 10 * time.Minute
+	}
+	_, err := c.kapi.Set(context.Background(), key, v, &client.SetOptions{TTL: duration})
+	return err
+}
+
+func (c *EtcdClient) Delete(k string) error {
+	key := k // NOTE: not add prefix
 	_, err := c.kapi.Delete(context.Background(), key, nil)
+	return err
+}
+
+func (c *EtcdClient) DeleteDir(k string) error {
+	key := k // NOTE: not add prefix
+	_, err := c.kapi.Delete(context.Background(), key, &client.DeleteOptions{Dir: true, Recursive: true})
 	return err
 }
 
@@ -135,10 +159,6 @@ func (c *EtcdClient) Lock(k string, lockTime time.Duration) error {
 func (c *EtcdClient) Unlock(path string) error {
 	lockKey := path + "/_lock"
 	return c.Delete(lockKey)
-}
-
-func (c *EtcdClient) RecursiveGet(k string) (*client.Response, error) {
-	return c.kapi.Get(context.Background(), k, &client.GetOptions{Recursive: true})
 }
 
 func (c *EtcdClient) CreateDir(k string) error {

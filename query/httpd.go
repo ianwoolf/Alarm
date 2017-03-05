@@ -6,12 +6,14 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/lodastack/alarm/config"
+	"github.com/lodastack/alarm/work"
 
 	"github.com/lodastack/log"
 )
+
+var worker *work.Work
 
 type Response struct {
 	StatusCode int         `json:"httpstatus"`
@@ -41,10 +43,6 @@ func succResp(resp http.ResponseWriter, msg string, data interface{}) {
 	resp.Header().Add("Content-Type", "application/json")
 	resp.WriteHeader(http.StatusOK)
 	resp.Write(bytes)
-}
-
-func getTimeDurMs(start time.Time, end time.Time) float64 {
-	return float64((end.UnixNano() - start.UnixNano()) / 1e6)
 }
 
 type responseWriter struct {
@@ -102,10 +100,10 @@ func addHandlers() {
 	http.Handle(prefix+"/post", cors(http.HandlerFunc(postDataHandler)))
 }
 
-func Start() {
+func Start(work *work.Work) {
 	bind := fmt.Sprintf("%s", config.GetConfig().Com.Listen)
 	log.Infof("http start on %s!\n", bind)
-
+	worker = work
 	addHandlers()
 
 	err := http.ListenAndServe(bind, nil)

@@ -23,6 +23,7 @@ type Config struct {
 	Reg  RegistryConfig `toml:"registry"`
 	Nsq  NsqConfig      `toml:"nsq"`
 	Etcd EtcdConfig     `toml:"etcd"`
+	Mail MailConfig     `toml:"mail"`
 	Log  LogConfig      `toml:"log"`
 
 	EtcdConfig client.Config `toml:"-"`
@@ -35,7 +36,12 @@ type EtcdConfig struct {
 	Endpoints     []string      `toml:"endpoints"`
 	HeaderTimeout time.Duration `toml:"timeout"`
 }
-
+type MailConfig struct {
+	User string `toml:"user"`
+	Pwd  string `toml:"pwd"`
+	Host string `toml:"host"`
+	Port int    `toml:"port"`
+}
 type CommonConfig struct {
 	Listen             string `toml:"listen"`
 	InfluxdPort        int    `toml:"influxdPort"`
